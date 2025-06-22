@@ -113,7 +113,7 @@ def draw_cube():
     # Começa a desenhar um polígono
     glBegin(GL_LINES)
     
-    # Define a cor do losango (RGB: vermelho)
+    # Define a cor do losango (RGBA: vermelho)
     glColor3f(1.0, 0.0, 0.0)
     
     # Desenha cada vértice
@@ -121,6 +121,7 @@ def draw_cube():
         for j in i:
             glVertex3fv(vertices_cubo[j])
             
+    
     # Termina de desenhar o polígono
     glEnd()
     
@@ -167,73 +168,115 @@ def get_direction(yaw, pitch):
     z = np.cos(rad_pitch) * np.sin(rad_yaw)
     return np.array([x, y, z], dtype=np.float32)
 
+def visualize_z_buffer(width, height):
+    z_buffer_data = glReadPixels(0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT)
+    depth_map = np.frombuffer(z_buffer_data, dtype=np.float32).reshape(height, width)
+    depth_map = np.power(depth_map, 0.2) 
+    depth_map = np.flipud(depth_map) 
+    # Normaliza para o intervalo 0-255
+    min_val, max_val = np.min(depth_map), np.max(depth_map)
+    if max_val - min_val > 0:
+        normalized_depth = 255 * (depth_map - min_val) / (max_val - min_val)
+    else:
+        normalized_depth = np.zeros_like(depth_map)
+
+    # Converte para uma imagem de 3 canais (RGB) em tons de cinza
+    grayscale_image = np.stack([normalized_depth.astype(np.uint8)]*3, axis=-1)
+    
+    return pygame.surfarray.make_surface(grayscale_image.transpose(1, 0, 2))
+
+def pygame_surface_to_texture(pygame_surface, tex_id):
+    """Converte uma superfície Pygame em uma textura OpenGL."""
+    rgb_surface = pygame.image.tostring(pygame_surface, 'RGB')
+    glBindTexture(GL_TEXTURE_2D, tex_id)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, pygame_surface.get_width(), pygame_surface.get_height(), 0, GL_RGB, GL_UNSIGNED_BYTE, rgb_surface)
+
 def main():
     # Inicializa o Pygame
     pygame.init()
     
     # Define o tamanho da janela
-    display = (800, 600)
+    display = (600, 400)
+
+    pygame.display.gl_set_attribute(pygame.GL_DEPTH_SIZE, 24)
+    screen = pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
+
+
     pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
-    # utilizando Z-buffer para a visualização
+
+    #Habilita o teste da profundidade 
     glEnable(GL_DEPTH_TEST)
-    pygame.display.set_caption("Hexagono com OpenGL")
+    #escolhe o modo de como passar no test 
+    # GL_LESS
+    # passa no teste se a proxima profundidade é menor que o armazenado no buffer anterior.
+    glDepthFunc(GL_LESS)
+
+    show_zbuffer_view = False 
+
+    pygame.display.set_caption("C3 3D com OpenGL")
     
-    # Define a perspectiva (só precisa ser chamada uma vez)
+    # Define a perspectiva
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
-    gluPerspective(60, (display[0] / display[1]), 0.1, 100.0)
+    gluPerspective(60, (display[0] / display[1]), 0.1, 50.0)
     
-    # Volta para a matriz ModelView para as operações de câmera e objetos
-    glMatrixMode(GL_MODELVIEW)
-
-    # --- Variáveis da Câmera  ---
+    # Varieveis da camera 
     yaw = 0.0
-    pitch = 25.0  # Começa olhando um pouco de cima
+    pitch = 25.0 
     distance = 25.0
-    
-    # --- Controle do Mouse ---
-    mouse_down = False 
+
+    # controle do mouse 
+    mouse_clicado = False
 
     # Loop principal
     while True:
-        # --- 1. Processamento de Eventos ---
+        # Verifica eventos
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 return
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    pygame.quit()
-                    return
+              if event.key == pygame.K_ESCAPE:
+                pygame.quit()
+                return
+              if event.key == pygame.K_z:
+                      show_zbuffer_view = not show_zbuffer_view
+                      if show_zbuffer_view:
+                          pygame.display.set_caption("Visualização do Z-Buffer (Pressione Z para voltar)")
+                      else:
+                          pygame.display.set_caption("C3 3D com OpenGL")  
+              
             # Eventos para controlar a rotação com clique do mouse
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Botão esquerdo do mouse
-                    mouse_down = True
+                    mouse_clicado = True
                     pygame.mouse.get_rel()
             elif event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 1:
-                    mouse_down = False
+                    mouse_clicado = False
             # Evento para controlar o Zoom com a roda do mouse
             elif event.type == pygame.MOUSEWHEEL:
                 distance -= event.y * 1.5 # event.y é +1 para cima, -1 para baixo
                 if distance < 1.0: distance = 1.0 # Limite mínimo de zoom
                 if distance > 80.0: distance = 80.0 # Limite máximo
 
-        if mouse_down:
+        if mouse_clicado:
             dx, dy = pygame.mouse.get_rel()
             yaw += dx * 0.5
             pitch -= dy * 0.5
-            pitch = np.clip(pitch, -89, 89) # Limita o ângulo vertical
-
-        # --- 2. Limpar a Tela ---
+            pitch = np.clip(pitch, -89, 89) # Limita o ângulo vertical  
         
-        # utilizando Z-buffer para a visualização
+
+        # limpa o buffer anterior e o buffer da profundidade 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        
-        # --- 3. Configurar a Câmera ---
-        glLoadIdentity() # Reseta a matriz da câmera a cada quadro
 
-        # Calcula a posição da câmera em uma esfera ao redor da origem
+        # Começa resetando a matriz de ModelView
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+
+        # calcula a posição da camera (esfericas cartesianas)
         rad_yaw = np.radians(yaw)
         rad_pitch = np.radians(pitch)
 
@@ -241,12 +284,10 @@ def main():
         cam_y = distance * np.sin(rad_pitch)
         cam_z = distance * np.cos(rad_pitch) * np.cos(rad_yaw)
 
-        #podemos mudar a ordem do teste da profundidade pelo comando 
-        #glDepthFunc(…)
-        #por enquanto, não encontramos motivo para mudar. 
-
-        # Aponta a câmera da sua posição calculada para a origem (0,0,0)
-        gluLookAt(cam_x, cam_y, cam_z, 0, 0, 0, 0, 1, 0)
+        # aplica a tranformação da camera 
+        gluLookAt(cam_x, cam_y, cam_z,
+                  0.0, 0.0, 0.0,
+                  0.0, 1.0, 0.0)
 
         #Cubo central c3
         glPushMatrix()
@@ -315,9 +356,43 @@ def main():
         apply_matrix(rotate_z(np.radians(-135)))
         draw_cube()
         glPopMatrix()
-        
-        # --- 5. Atualizar a Tela ---
+
+        if show_zbuffer_view:
+           # Se a visualização do z-buffer estiver ativa...
+           # 1. Gera a imagem do buffer de profundidade
+           depth_surface = visualize_z_buffer(display[0], display[1])
+           # 2. Desenha essa imagem na tela, sobrepondo a cena colorida
+           #    (Precisamos de um contexto 2D temporário para isso)
+           glMatrixMode(GL_PROJECTION)
+           glPushMatrix()
+           glLoadIdentity()
+           gluOrtho2D(0, display[0], 0, display[1])
+           glMatrixMode(GL_MODELVIEW)
+           glPushMatrix()
+           glLoadIdentity()
+           # Converte a superfície para uma textura e desenha num retângulo
+           tex_id = glGenTextures(1)
+           glBindTexture(GL_TEXTURE_2D, tex_id)
+           pygame_surface_to_texture(depth_surface, tex_id)
+           glEnable(GL_TEXTURE_2D)
+           glBegin(GL_QUADS)
+           glTexCoord2f(0, 0); glVertex2f(0, 0)
+           glTexCoord2f(1, 0); glVertex2f(display[0], 0)
+           glTexCoord2f(1, 1); glVertex2f(display[0], display[1])
+           glTexCoord2f(0, 1); glVertex2f(0, display[1])
+           glEnd()
+           glDisable(GL_TEXTURE_2D)
+           glDeleteTextures(1, [tex_id])
+           # Restaura as matrizes 3D
+           glPopMatrix()
+           glMatrixMode(GL_PROJECTION)
+           glPopMatrix()
+           glMatrixMode(GL_MODELVIEW)
+    
+        # Atualiza a tela
         pygame.display.flip()
+        
+        # Controla a taxa de quadros
         pygame.time.wait(10)
 
 if __name__ == "__main__":
