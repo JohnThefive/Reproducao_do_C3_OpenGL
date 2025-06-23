@@ -4,6 +4,7 @@ from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
+
 # ----- Funções de transformação ----- #
 def translate(dx, dy, dz):
     t = np.array([
@@ -62,6 +63,12 @@ def rotate_z(alfa):
     ])
 
     return r
+
+# função de perpectiva 
+
+
+# função Ortogonal 
+
 
 def draw_grid(size=2000, step=2):
     glColor3f(0.7, 0.7, 0.7)
@@ -168,30 +175,6 @@ def get_direction(yaw, pitch):
     z = np.cos(rad_pitch) * np.sin(rad_yaw)
     return np.array([x, y, z], dtype=np.float32)
 
-def visualize_z_buffer(width, height):
-    z_buffer_data = glReadPixels(0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT)
-    depth_map = np.frombuffer(z_buffer_data, dtype=np.float32).reshape(height, width)
-    depth_map = np.power(depth_map, 0.2) 
-    depth_map = np.flipud(depth_map) 
-    # Normaliza para o intervalo 0-255
-    min_val, max_val = np.min(depth_map), np.max(depth_map)
-    if max_val - min_val > 0:
-        normalized_depth = 255 * (depth_map - min_val) / (max_val - min_val)
-    else:
-        normalized_depth = np.zeros_like(depth_map)
-
-    # Converte para uma imagem de 3 canais (RGB) em tons de cinza
-    grayscale_image = np.stack([normalized_depth.astype(np.uint8)]*3, axis=-1)
-    
-    return pygame.surfarray.make_surface(grayscale_image.transpose(1, 0, 2))
-
-def pygame_surface_to_texture(pygame_surface, tex_id):
-    """Converte uma superfície Pygame em uma textura OpenGL."""
-    rgb_surface = pygame.image.tostring(pygame_surface, 'RGB')
-    glBindTexture(GL_TEXTURE_2D, tex_id)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, pygame_surface.get_width(), pygame_surface.get_height(), 0, GL_RGB, GL_UNSIGNED_BYTE, rgb_surface)
 
 def main():
     # Inicializa o Pygame
@@ -241,12 +224,6 @@ def main():
               if event.key == pygame.K_ESCAPE:
                 pygame.quit()
                 return
-              if event.key == pygame.K_z:
-                      show_zbuffer_view = not show_zbuffer_view
-                      if show_zbuffer_view:
-                          pygame.display.set_caption("Visualização do Z-Buffer (Pressione Z para voltar)")
-                      else:
-                          pygame.display.set_caption("C3 3D com OpenGL")  
               
             # Eventos para controlar a rotação com clique do mouse
             elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -357,38 +334,6 @@ def main():
         draw_cube()
         glPopMatrix()
 
-        if show_zbuffer_view:
-           # Se a visualização do z-buffer estiver ativa...
-           # 1. Gera a imagem do buffer de profundidade
-           depth_surface = visualize_z_buffer(display[0], display[1])
-           # 2. Desenha essa imagem na tela, sobrepondo a cena colorida
-           #    (Precisamos de um contexto 2D temporário para isso)
-           glMatrixMode(GL_PROJECTION)
-           glPushMatrix()
-           glLoadIdentity()
-           gluOrtho2D(0, display[0], 0, display[1])
-           glMatrixMode(GL_MODELVIEW)
-           glPushMatrix()
-           glLoadIdentity()
-           # Converte a superfície para uma textura e desenha num retângulo
-           tex_id = glGenTextures(1)
-           glBindTexture(GL_TEXTURE_2D, tex_id)
-           pygame_surface_to_texture(depth_surface, tex_id)
-           glEnable(GL_TEXTURE_2D)
-           glBegin(GL_QUADS)
-           glTexCoord2f(0, 0); glVertex2f(0, 0)
-           glTexCoord2f(1, 0); glVertex2f(display[0], 0)
-           glTexCoord2f(1, 1); glVertex2f(display[0], display[1])
-           glTexCoord2f(0, 1); glVertex2f(0, display[1])
-           glEnd()
-           glDisable(GL_TEXTURE_2D)
-           glDeleteTextures(1, [tex_id])
-           # Restaura as matrizes 3D
-           glPopMatrix()
-           glMatrixMode(GL_PROJECTION)
-           glPopMatrix()
-           glMatrixMode(GL_MODELVIEW)
-    
         # Atualiza a tela
         pygame.display.flip()
         
