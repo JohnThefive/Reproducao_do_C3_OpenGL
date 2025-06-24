@@ -4,7 +4,6 @@ from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-
 # ----- Funções de transformação ----- #
 def translate(dx, dy, dz):
     t = np.array([
@@ -38,6 +37,7 @@ def rotate_x(alfa):
 
     return r
 
+
 def rotate_y(alfa):
     cosseno = np.cos(alfa)
     seno = np.sin(alfa)
@@ -64,10 +64,41 @@ def rotate_z(alfa):
 
     return r
 
-# função de perpectiva 
+
+#Funcao perspectiva:
+def perspectiva(fovy, aspect, near, far):
+    #Calcular t, b, r, l a partir de fovy, aspect, near
+    fovy_rad = np.radians(fovy)
+    t = near * np.tan(fovy_rad / 2.0)
+    b = -t
+    r = t * aspect
+    l = -r
+    n = near
+    f = far
+    
+    #aqui cria uma matriz de zeros e gera a matriz que foi mostrada em sala de aula
+    matriz = np.zeros((4, 4), dtype=np.float32)
+
+    matriz[0, 0] = n / r
+    matriz[1, 1] = n / t
+    matriz[2, 2] = -(f + n) / (f - n)
+    matriz[2, 3] = -(2 * f * n) / (f - n)
+    matriz[3, 2] = -1.0
+    
+    return matriz
 
 
-# função Ortogonal 
+#funcao que calcula a normal:
+def calcular_normal(v0, v1, v2):
+    a = np.array(v1) - np.array(v0)
+    b = np.array(v2) - np.array(v0)
+    normal = np.cross(a, b)
+    # Normalizamos o vetor para que ele tenha comprimento 1
+    norma = np.linalg.norm(normal)
+    # Evita divisão por zero
+    if norma == 0:
+        return np.array([0.0, 0.0, 1.0]) 
+    return normal / norma
 
 
 def draw_grid(size=2000, step=2):
@@ -100,36 +131,41 @@ def draw_axes(length=100):
     
 def apply_matrix(matriz):
     glMultMatrixf(matriz.T)
-    
-def draw_cube():
-    #define os vértices do losango (x, y, z) 
-    vertices_cubo = [
-        (0, 0, 0), 
-        (1, 0, 0), 
-        (1, 1, 0), 
-        (0, 1, 0), 
-        (0, 0, 1), 
-        (1, 0, 1), 
-        (1, 1, 1), 
-        (0, 1, 1), 
-    ]
-    arestas_cubo =    [ (0, 1), (1, 2), (2, 3), (3, 0), 
-        (4, 5), (5, 6), (6, 7), (7, 4),
-        (0, 4), (1, 5), (2, 6), (3, 7)] 
 
-    # Começa a desenhar um polígono
-    glBegin(GL_LINES)
+
+# Alteração do draw_cube para pegar as vertices e fazer a tonalização gouraud     
+def draw_cube(vertex_colors=None):
+    vertices_cubo = [
+        (0, 0, 0), # 0: base, trás, esquerda
+        (1, 0, 0), # 1: base, trás, direita
+        (1, 1, 0), # 2: topo, trás, direita
+        (0, 1, 0), # 3: topo, trás, esquerda
+        (0, 0, 1), # 4: base, frente, esquerda
+        (1, 0, 1), # 5: base, frente, direita
+        (1, 1, 1), # 6: topo, frente, direita
+        (0, 1, 1), # 7: topo, frente, esquerda
+    ]
     
-    # Define a cor do losango (RGBA: vermelho)
-    glColor3f(1.0, 0.0, 0.0)
-    
-    # Desenha cada vértice
-    for i in arestas_cubo:
-        for j in i:
-            glVertex3fv(vertices_cubo[j])
+    faces_cubo = [
+        (3, 2, 6, 7), # Topo
+        (0, 4, 5, 1), # Base
+        (4, 5, 6, 7), # Frente
+        (0, 1, 2, 3), # Trás
+        (0, 3, 7, 4), # Esquerda
+        (1, 5, 6, 2)  # Direita
+    ]
+
+    glBegin(GL_QUADS)
+    for face in faces_cubo:
+        v0, v1, v2 = vertices_cubo[face[0]], vertices_cubo[face[1]], vertices_cubo[face[2]]
+        normal = calcular_normal(v0, v1, v2)
+        
+        for vertice_index in face:
+            if vertex_colors and len(vertex_colors) == 8:
+                glColor3fv(vertex_colors[vertice_index])
             
-    
-    # Termina de desenhar o polígono
+            glNormal3fv(normal)
+            glVertex3fv(vertices_cubo[vertice_index])
     glEnd()
     
 def draw_hex():
@@ -138,29 +174,44 @@ def draw_hex():
     num_lados = 6
     angulos = np.linspace(0, 2 * np.pi, num=num_lados, endpoint=False)
 
-    # Gerar vértices da base e do topo
     base = np.array([[radius * np.cos(a), radius * np.sin(a), 0] for a in angulos])
-    topo = base + np.array([0, 0, height])  # mesma base + altura em Z
+    topo = base + np.array([0, 0, height])
 
-    # Desenha as arestas da base
-    glColor3f(0.0, 0.6, 1.0)
-    glBegin(GL_LINE_LOOP)
-    for v in base:
+    # --- Base de baixo ---
+    glBegin(GL_POLYGON)
+    normal_base = [0.0, 0.0, -1.0]
+    for v in reversed(base):
+        glNormal3fv(normal_base) # Normal definida por vértice
         glVertex3fv(v)
     glEnd()
 
-    # Desenha as arestas do topo
-    glBegin(GL_LINE_LOOP)
+    # --- Base de cima ---
+    glBegin(GL_POLYGON)
+    normal_topo = [0.0, 0.0, 1.0]
     for v in topo:
+        glNormal3fv(normal_topo) # Normal definida por vértice
         glVertex3fv(v)
     glEnd()
 
-    # Liga base ao topo com linhas verticais
-    glBegin(GL_LINES)
+    # --- Faces Laterais ---
+    glBegin(GL_QUADS)
     for i in range(num_lados):
-        glVertex3fv(base[i])
-        glVertex3fv(topo[i])
+        v1, v2 = base[i], topo[i]
+        v3, v4 = topo[(i + 1) % num_lados], base[(i + 1) % num_lados]
+        
+        normal_lateral = calcular_normal(v1, v4, v2)
+        
+        # Define a normal para cada um dos 4 vértices da face
+        glNormal3fv(normal_lateral)
+        glVertex3fv(v1)
+        glNormal3fv(normal_lateral)
+        glVertex3fv(v2)
+        glNormal3fv(normal_lateral)
+        glVertex3fv(v3)
+        glNormal3fv(normal_lateral)
+        glVertex3fv(v4)
     glEnd()
+
 
 def apply_camera(pos, look, up):
     glMatrixMode(GL_MODELVIEW)
@@ -175,85 +226,154 @@ def get_direction(yaw, pitch):
     z = np.cos(rad_pitch) * np.sin(rad_yaw)
     return np.array([x, y, z], dtype=np.float32)
 
-
 def main():
     # Inicializa o Pygame
     pygame.init()
     
     # Define o tamanho da janela
-    display = (600, 400)
-
-    pygame.display.gl_set_attribute(pygame.GL_DEPTH_SIZE, 24)
-    screen = pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
-
-
+    display = (800, 600)
     pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
 
-    #Habilita o teste da profundidade 
+    # TIRAR duvida com o professor
+    # Ativando o teste de profundidade 
     glEnable(GL_DEPTH_TEST)
-    #escolhe o modo de como passar no test 
-    # GL_LESS
-    # passa no teste se a proxima profundidade é menor que o armazenado no buffer anterior.
-    glDepthFunc(GL_LESS)
-
-    show_zbuffer_view = False 
-
-    pygame.display.set_caption("C3 3D com OpenGL")
+    # Escolhendo o modelo de analise de profundidade ( LESS)
+    glDepthFunc(GL_LEQUAL)
     
-    # Define a perspectiva
+    
+    # ATIVA ILUMINAÇÃO
+    # Habilita o sistema de iluminação
+    glEnable(GL_LIGHTING)
+    # Liga a primeira fonte de luz
+    glEnable(GL_LIGHT0)         
+    glEnable(GL_COLOR_MATERIAL)
+    # Habilita o uso da cor definida em glColor() como material para iluminação 
+    glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE)
+
+    # modo de sombreamento para gouraud ( suave)
+    glShadeModel(GL_SMOOTH)
+
+    #CONFIGURANDO A LUZ 
+    #Luz Ambiente da fonte (luz fraca que preenche a cena)
+    luz_ambiente = [0.3, 0.3, 0.3, 1.0] 
+    #Luz Difusa da fonte (a cor principal da luz)
+    luz_difusa = [0.8, 0.8, 0.8, 1.0] 
+    #Luz Especular da fonte (a cor do brilho)
+    luz_especular = [1.0, 1.0, 1.0, 1.0]
+    #Posição da luz no espaço
+    posicao_luz = [5.0, 10.0, 10.0, 1.0]
+    
+    
+    #CONFIGURAR O MATERIAL
+    # Define como o material reflete o brilho especular (será branco)
+    material_especular = [1.0, 1.0, 1.0, 1.0]
+    # Define o quão "polido" é o material (valor alto = brilho pequeno e intenso)
+    material_shininess = [50.0]
+    
+    glMaterialfv(GL_FRONT, GL_SPECULAR, material_especular)
+    glMaterialfv(GL_FRONT, GL_SHININESS, material_shininess)
+
+    glLightfv(GL_LIGHT0, GL_AMBIENT, luz_ambiente)
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, luz_difusa)
+    glLightfv(GL_LIGHT0, GL_SPECULAR, luz_especular)
+    glLightfv(GL_LIGHT0, GL_POSITION, posicao_luz)
+    
+    
+    pygame.display.set_caption("Predio C3")
+    
+    # Seleciona a pilha de matriz de projeção
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
-    gluPerspective(60, (display[0] / display[1]), 0.1, 50.0)
-    
-    # Varieveis da camera 
-    yaw = 0.0
-    pitch = 25.0 
-    distance = 25.0
 
-    # controle do mouse 
-    mouse_clicado = False
+
+    #Cria a matriz de projeção usando a sua nova função
+    fovy = 60
+    aspect = display[0] / display[1]
+    near = 0.1
+    far = 100.0
+    proj_mat = perspectiva(fovy, aspect, near, far)
+    apply_matrix(proj_mat)        
+        
+    # Volta para a matriz ModelView para as operações de câmera e objetos
+    glMatrixMode(GL_MODELVIEW)
+
+    # --- Variáveis da Câmera  ---
+    yaw = 0.0
+    pitch = 25.0  # Começa olhando um pouco de cima
+    distance = 25.0
+    
+    # --- Controle do Mouse ---
+    mouse_down = False 
+
+
+    #COR_MARROM = (0.5, 0.25, 0.0) # Um marrom (50% vermelho, 25% verde)
+    #COR_BRANCO = (1.0, 1.0, 1.0) # Branco puro
+    #Definindo um vetor pra pintar, ordem: [Topo, Fundo, Esquerda, Direita, Frente, Trás]
+    #PALETA_MARROM_TETO_BRANCO = [
+    #    COR_BRANCO, # Topo
+    #    COR_BRANCO, # Fundo
+    #    COR_MARROM, # Esquerda
+    #    COR_MARROM, # Direita
+    #    COR_MARROM, # Frente
+    #    COR_MARROM  # Trás
+    #]
+
+    #definindo as cores para degrade (teste)
+    COR_BASE_ESCURA = (0.3, 0.15, 0.05) # Um marrom bem escuro
+    COR_TOPO_CLARA = (0.8, 0.7, 0.5)   
+
+    CORES_DEGRADE_CUBO = [
+    COR_BASE_ESCURA, # Vértice 0 (base)
+    COR_BASE_ESCURA, # Vértice 1 (base)
+    COR_BASE_ESCURA, # Vértice 2 (base)
+    COR_BASE_ESCURA, # Vértice 3 (base)
+    COR_TOPO_CLARA,  # Vértice 4 (topo)
+    COR_TOPO_CLARA,  # Vértice 5 (topo)
+    COR_TOPO_CLARA,  # Vértice 6 (topo)
+    COR_TOPO_CLARA,  # Vértice 7 (topo)
+]
+
 
     # Loop principal
     while True:
-        # Verifica eventos
+        # --- 1. Processamento de Eventos ---
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 return
             elif event.type == pygame.KEYDOWN:
-              if event.key == pygame.K_ESCAPE:
-                pygame.quit()
-                return
-              
+                if event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    return
             # Eventos para controlar a rotação com clique do mouse
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Botão esquerdo do mouse
-                    mouse_clicado = True
+                    mouse_down = True
                     pygame.mouse.get_rel()
             elif event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 1:
-                    mouse_clicado = False
+                    mouse_down = False
             # Evento para controlar o Zoom com a roda do mouse
             elif event.type == pygame.MOUSEWHEEL:
                 distance -= event.y * 1.5 # event.y é +1 para cima, -1 para baixo
                 if distance < 1.0: distance = 1.0 # Limite mínimo de zoom
                 if distance > 80.0: distance = 80.0 # Limite máximo
 
-        if mouse_clicado:
+        if mouse_down:
             dx, dy = pygame.mouse.get_rel()
             yaw += dx * 0.5
             pitch -= dy * 0.5
-            pitch = np.clip(pitch, -89, 89) # Limita o ângulo vertical  
+            pitch = np.clip(pitch, -89, 89) # Limita o ângulo vertical
+
+        # --- 2. Limpar a Tela ---
         
-
-        # limpa o buffer anterior e o buffer da profundidade 
+        # Limpando a tela de buffer_normal e a tela de buffer da profundidade
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        
+        # --- 3. Configurar a Câmera ---
+        glLoadIdentity() # Reseta a matriz da câmera a cada quadro
 
-        # Começa resetando a matriz de ModelView
-        glMatrixMode(GL_MODELVIEW)
-        glLoadIdentity()
-
-        # calcula a posição da camera (esfericas cartesianas)
+        # Calcula a posição da câmera em uma esfera ao redor da origem
         rad_yaw = np.radians(yaw)
         rad_pitch = np.radians(pitch)
 
@@ -261,28 +381,29 @@ def main():
         cam_y = distance * np.sin(rad_pitch)
         cam_z = distance * np.cos(rad_pitch) * np.cos(rad_yaw)
 
-        # aplica a tranformação da camera 
-        gluLookAt(cam_x, cam_y, cam_z,
-                  0.0, 0.0, 0.0,
-                  0.0, 1.0, 0.0)
+
+        # Aponta a câmera da sua posição calculada para a origem (0,0,0)
+        gluLookAt(cam_x, cam_y, cam_z, 0, 0, 0, 0, 1, 0)
+
 
         #Cubo central c3
         glPushMatrix()
         glMultMatrixf(scale(4, 6, 3))
-        draw_cube()
+        draw_cube(vertex_colors=CORES_DEGRADE_CUBO)
         glPopMatrix()
         
         #Retangulo maior
         glPushMatrix()
         apply_matrix(scale(12, 4, 3))
         apply_matrix(translate(-0.335, 1.5, 0))
-        draw_cube()
+        draw_cube(vertex_colors=CORES_DEGRADE_CUBO)
         glPopMatrix()
         
         #Cubo da direita - aplicar rotação
         glPushMatrix()
+        glColor3f(0.9, 0.9, 0.9)
         apply_matrix(scale(4, 4, 3))
-        apply_matrix(translate(2, 1.5, 0))
+        apply_matrix(translate(2, 1.5, -0.01))
         apply_matrix(rotate_z(np.radians(20)))
         draw_cube()
         glPopMatrix()
@@ -292,13 +413,14 @@ def main():
         apply_matrix(scale(3, 3, 3))
         apply_matrix(translate(3.7, 2.7, 0))
         apply_matrix(rotate_z(np.radians(20)))
-        draw_cube()
+        draw_cube(vertex_colors=CORES_DEGRADE_CUBO)
         glPopMatrix()
         
         #Cubo da esquerda - aplicar rotação
         glPushMatrix()
+        glColor3f(0.9, 0.9, 0.9)
         apply_matrix(scale(4, 4, 3))
-        apply_matrix(translate(-1, 1.5, 0))
+        apply_matrix(translate(-1, 1.5, -0.01))
         apply_matrix(rotate_z(np.radians(70)))
         draw_cube()
         glPopMatrix()
@@ -308,13 +430,14 @@ def main():
         apply_matrix(scale(3, 3, 3))
         apply_matrix(translate(-2.35, 2.7, 0))
         apply_matrix(rotate_z(np.radians(70)))
-        draw_cube()
+        draw_cube(vertex_colors=CORES_DEGRADE_CUBO)
         glPopMatrix()
         
         #hexagono do hall
         glPushMatrix()
+        glColor3f(0.9, 0.9, 0.9)
         apply_matrix(scale(2.5, 2.5, 3))
-        apply_matrix(translate(0.78, -0.35, 0))
+        apply_matrix(translate(0.78, -0.35, 0.01))
         draw_hex()
         glPopMatrix()
         
@@ -323,7 +446,7 @@ def main():
         apply_matrix(scale(3, 3, 3))
         apply_matrix(translate(-0.18, -1.7, 0))
         apply_matrix(rotate_z(np.radians(45)))
-        draw_cube()
+        draw_cube(vertex_colors=CORES_DEGRADE_CUBO)
         glPopMatrix()
         
         #Cubo menor do hall - esquerda
@@ -331,13 +454,11 @@ def main():
         apply_matrix(scale(3, 3, 3))
         apply_matrix(translate(1.48, -0.3, 0))
         apply_matrix(rotate_z(np.radians(-135)))
-        draw_cube()
+        draw_cube(vertex_colors=CORES_DEGRADE_CUBO)
         glPopMatrix()
-
-        # Atualiza a tela
-        pygame.display.flip()
         
-        # Controla a taxa de quadros
+        # --- 5. Atualizar a Tela ---
+        pygame.display.flip()
         pygame.time.wait(10)
 
 if __name__ == "__main__":
