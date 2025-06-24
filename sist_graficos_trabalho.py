@@ -87,6 +87,43 @@ def perspectiva(fovy, aspect, near, far):
     
     return matriz
 
+def orthographic(right, left, bottom, top, near, far):
+    matrix = np.zeros((4,4))
+    matrix[0, 0] = 2 / (right - left)
+    matrix[0, 3] = -((right + left) / (right - left))
+    matrix[1, 1] = 2 / (top - bottom)
+    matrix[1, 3] = - ((top + bottom) / (top - bottom))
+    matrix[2, 2] = -2 / (far - near)
+    matrix[2, 3] = - ((far + near) / (far - near))
+    matrix[3, 3] = 1
+    return matrix
+
+def bresenham(x0, x1, y0, y1):
+    points = []
+    x0, y0, x1, y1 = int(x0), int(y0), int(x1), int(y1)
+
+    dx = abs(x1 - x0)
+    dy = abs(y1 - y0)
+
+    sx = 1 if x0 < x1 else -1
+    sy = 1 if y0 < y1 else -1
+    err = dx - dy
+    x, y = x0, y0
+
+    while True:
+        points.append((x, y))
+        if x == x1 and y == y1:
+            break
+
+        e2 = 2 * err
+        if e2 > -dy:
+            err -= dy
+            x += sx
+        if e2 < dx:
+            err += dx
+            y += sy
+            
+    return points
 
 #funcao que calcula a normal:
 def calcular_normal(v0, v1, v2):
@@ -219,8 +256,91 @@ def draw_hex():
         glVertex3fv(v3)
         glVertex3fv(v4)
     glEnd()
+    
+def draw_char_c(inner_radius=0.8, thickness=0.4, depth=0.5, num_segments=20):
+    outer_radius = inner_radius + thickness
+    
+    # O 'C' é um arco que vai de ~45 graus a ~315 graus
+    start_angle = np.radians(45)
+    end_angle = np.radians(315)
+    
+    angles = np.linspace(start_angle, end_angle, num_segments + 1)
+    
+    # --- Desenha a face da FRENTE (Z=0) ---
+    glNormal3f(0.0, 0.0, 1.0) # Normal aponta para "fora" da tela
+    glBegin(GL_QUAD_STRIP)
+    for angle in angles:
+        # Vértice externo
+        x_out = outer_radius * np.cos(angle)
+        y_out = outer_radius * np.sin(angle)
+        glVertex3f(x_out, y_out, depth / 2.0)
+        
+        # Vértice interno
+        x_in = inner_radius * np.cos(angle)
+        y_in = inner_radius * np.sin(angle)
+        glVertex3f(x_in, y_in, depth / 2.0)
+    glEnd()
 
+    # --- Desenha a face de TRÁS (Z=-depth) ---
+    glNormal3f(0.0, 0.0, -1.0)
+    glBegin(GL_QUAD_STRIP)
+    for angle in angles:
+        # Vértice interno (ordem invertida para manter a normal correta)
+        x_in = inner_radius * np.cos(angle)
+        y_in = inner_radius * np.sin(angle)
+        glVertex3f(x_in, y_in, -depth / 2.0)
+        
+        # Vértice externo
+        x_out = outer_radius * np.cos(angle)
+        y_out = outer_radius * np.sin(angle)
+        glVertex3f(x_out, y_out, -depth / 2.0)
+    glEnd()
 
+    glBegin(GL_QUAD_STRIP)
+    for angle in angles:
+        normal = (np.cos(angle), np.sin(angle), 0)
+        glNormal3fv(normal)
+        
+        x = outer_radius * np.cos(angle)
+        y = outer_radius * np.sin(angle)
+        glVertex3f(x, y, -depth / 2.0)
+        glVertex3f(x, y, depth / 2.0)
+    glEnd()
+
+    glBegin(GL_QUAD_STRIP)
+    for angle in angles:
+        # Normal aponta para o centro (negativo da direção)
+        normal = (-np.cos(angle), -np.sin(angle), 0)
+        glNormal3fv(normal)
+
+        x = inner_radius * np.cos(angle)
+        y = inner_radius * np.sin(angle)
+        glVertex3f(x, y, depth / 2.0)
+        glVertex3f(x, y, -depth / 2.0)
+    glEnd()
+    
+    glBegin(GL_QUADS)
+    angle = start_angle
+    p_in_start = (inner_radius * np.cos(angle), inner_radius * np.sin(angle))
+    p_out_start = (outer_radius * np.cos(angle), outer_radius * np.sin(angle))
+    normal_top = np.cross([0,0,1], [p_out_start[0]-p_in_start[0], p_out_start[1]-p_in_start[1], 0])
+    glNormal3fv(normal_top)
+    glVertex3f(p_in_start[0], p_in_start[1], depth / 2.0)
+    glVertex3f(p_out_start[0], p_out_start[1], depth / 2.0)
+    glVertex3f(p_out_start[0], p_out_start[1], -depth / 2.0)
+    glVertex3f(p_in_start[0], p_in_start[1], -depth / 2.0)
+
+    angle = end_angle
+    p_in_end = (inner_radius * np.cos(angle), inner_radius * np.sin(angle))
+    p_out_end = (outer_radius * np.cos(angle), outer_radius * np.sin(angle))
+    normal_bottom = np.cross([0,0,1], [p_in_end[0]-p_out_end[0], p_in_end[1]-p_out_end[1], 0])
+    glNormal3fv(normal_bottom)
+    glVertex3f(p_in_end[0], p_in_end[1], -depth / 2.0)
+    glVertex3f(p_out_end[0], p_out_end[1], -depth / 2.0)
+    glVertex3f(p_out_end[0], p_out_end[1], depth / 2.0)
+    glVertex3f(p_in_end[0], p_in_end[1], depth / 2.0)
+    glEnd()
+    
 def apply_camera(pos, look, up):
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
@@ -235,39 +355,22 @@ def get_direction(yaw, pitch):
     return np.array([x, y, z], dtype=np.float32)
 
 def main():
-    # Inicializa o Pygame
     pygame.init()
     
-    # Define o tamanho da janela
     display = (800, 600)
     pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
-    # utilizando Z-buffer para a visualização
     glEnable(GL_DEPTH_TEST)
     
-    
-    # ATIVA ILUMINAÇÃO
-    # Habilita o sistema de iluminação
     glEnable(GL_LIGHTING)
-    # Liga a primeira fonte de luz
     glEnable(GL_LIGHT0)         
     glEnable(GL_COLOR_MATERIAL)
     
-    
-    #CONFIGURANDO A LUZ 
-    #Luz Ambiente da fonte (luz fraca que preenche a cena)
     luz_ambiente = [0.3, 0.3, 0.3, 1.0] 
-    #Luz Difusa da fonte (a cor principal da luz)
     luz_difusa = [0.8, 0.8, 0.8, 1.0] 
-    #Luz Especular da fonte (a cor do brilho)
     luz_especular = [1.0, 1.0, 1.0, 1.0]
-    #Posição da luz no espaço
     posicao_luz = [5.0, 10.0, 10.0, 1.0]
     
-    
-    #CONFIGURAR O MATERIAL
-    # Define como o material reflete o brilho especular (será branco)
     material_especular = [1.0, 1.0, 1.0, 1.0]
-    # Define o quão "polido" é o material (valor alto = brilho pequeno e intenso)
     material_shininess = [50.0]
     
     glMaterialfv(GL_FRONT, GL_SPECULAR, material_especular)
@@ -278,47 +381,24 @@ def main():
     glLightfv(GL_LIGHT0, GL_SPECULAR, luz_especular)
     glLightfv(GL_LIGHT0, GL_POSITION, posicao_luz)
     
+    pygame.display.set_caption("Predio C3 - Pressione 'P' (Perspectiva) ou 'O' (Ortogonal)")
+    projection_mode = 'perspective'
     
-    pygame.display.set_caption("Predio C3")
-    
-    # Define a perspectiva (só precisa ser chamada uma vez)
-    glMatrixMode(GL_PROJECTION)
-    glLoadIdentity()
-
-
-    #Cria a matriz de projeção usando a sua nova função
-    fovy = 60
-    aspect = display[0] / display[1]
-    near = 0.1
-    far = 100.0
-    proj_mat = perspectiva(fovy, aspect, near, far)
-    apply_matrix(proj_mat)        
-        
-    # Volta para a matriz ModelView para as operações de câmera e objetos
-    glMatrixMode(GL_MODELVIEW)
-
     # --- Variáveis da Câmera  ---
     yaw = 0.0
-    pitch = 25.0  # Começa olhando um pouco de cima
+    pitch = 25.0
     distance = 25.0
     
     # --- Controle do Mouse ---
     mouse_down = False 
 
-    COR_MARROM = (0.5, 0.25, 0.0) # Um marrom (50% vermelho, 25% verde)
-    COR_BRANCO = (1.0, 1.0, 1.0) # Branco puro
-    #Definindo um vetor pra pintar, ordem: [Topo, Fundo, Esquerda, Direita, Frente, Trás]
+    COR_MARROM = (0.5, 0.25, 0.0)
+    COR_BRANCO = (1.0, 1.0, 1.0)
     PALETA_MARROM_TETO_BRANCO = [
-        COR_BRANCO, # Topo
-        COR_BRANCO, # Fundo
-        COR_MARROM, # Esquerda
-        COR_MARROM, # Direita
-        COR_MARROM, # Frente
-        COR_MARROM  # Trás
+        COR_BRANCO, COR_BRANCO, COR_MARROM, COR_MARROM, COR_MARROM, COR_MARROM
     ]
-    # Loop principal
+    
     while True:
-        # --- 1. Processamento de Eventos ---
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -327,35 +407,57 @@ def main():
                 if event.key == pygame.K_ESCAPE:
                     pygame.quit()
                     return
-            # Eventos para controlar a rotação com clique do mouse
+
+                # Alternar modo de projeção
+                if event.key == pygame.K_p:
+                    projection_mode = 'perspective'
+                    print("Modo de Projeção: Perspectiva")
+                elif event.key == pygame.K_o:
+                    projection_mode = 'orthogonal'
+                    print("Modo de Projeção: Ortogonal")
+
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:  # Botão esquerdo do mouse
+                if event.button == 1:
                     mouse_down = True
                     pygame.mouse.get_rel()
             elif event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 1:
                     mouse_down = False
-            # Evento para controlar o Zoom com a roda do mouse
             elif event.type == pygame.MOUSEWHEEL:
-                distance -= event.y * 1.5 # event.y é +1 para cima, -1 para baixo
-                if distance < 1.0: distance = 1.0 # Limite mínimo de zoom
-                if distance > 80.0: distance = 80.0 # Limite máximo
+                distance -= event.y * 1.5
+                if distance < 1.0: distance = 1.0
+                if distance > 80.0: distance = 80.0
 
         if mouse_down:
             dx, dy = pygame.mouse.get_rel()
             yaw += dx * 0.5
             pitch -= dy * 0.5
-            pitch = np.clip(pitch, -89, 89) # Limita o ângulo vertical
+            pitch = np.clip(pitch, -89, 89)
 
-        # --- 2. Limpar a Tela ---
-        
-        # utilizando Z-buffer para a visualização
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         
-        # --- 3. Configurar a Câmera ---
-        glLoadIdentity() # Reseta a matriz da câmera a cada quadro
+        # --- Configurar a Projeção (a cada frame) ---
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
 
-        # Calcula a posição da câmera em uma esfera ao redor da origem
+        aspect = display[0] / display[1]
+        near = 0.1
+        far = 100.0
+
+        if projection_mode == 'perspective':
+            fovy = 60
+            proj_mat = perspectiva(fovy, aspect, near, far)
+            apply_matrix(proj_mat)
+        else:
+            ortho_height = distance * 0.5 
+            ortho_width = ortho_height * aspect
+            proj_mat = orthographic(-ortho_width, ortho_width, -ortho_height, ortho_height, near, far)
+            apply_matrix(proj_mat)
+        
+        # --- 3. Configurar a Câmera (Matriz ModelView) ---
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+
         rad_yaw = np.radians(yaw)
         rad_pitch = np.radians(pitch)
 
@@ -363,11 +465,6 @@ def main():
         cam_y = distance * np.sin(rad_pitch)
         cam_z = distance * np.cos(rad_pitch) * np.cos(rad_yaw)
 
-        #podemos mudar a ordem do teste da profundidade pelo comando 
-        #glDepthFunc(…)
-        #por enquanto, não encontramos motivo para mudar. 
-
-        # Aponta a câmera da sua posição calculada para a origem (0,0,0)
         gluLookAt(cam_x, cam_y, cam_z, 0, 0, 0, 0, 1, 0)
 
         #Cubo central c3
@@ -441,7 +538,37 @@ def main():
         draw_cube(colors=PALETA_MARROM_TETO_BRANCO)
         glPopMatrix()
         
-        # --- 5. Atualizar a Tela ---
+        # Desenha o 'C' à esquerda do prédio
+        glPushMatrix()
+        glColor3f(0.9, 0.1, 0.1)
+        apply_matrix(translate(5.25, -4.25, 1.5))
+        apply_matrix(scale(0.5, 0.5, 0.5))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(rotate_y(np.radians(45)))
+        draw_char_c(depth=1.0, thickness=0.5)
+        glPopMatrix()
+        
+        # Desenha o 2 'C' para formar um 3
+        glPushMatrix()
+        glColor3f(0.9, 0.1, 0.1)
+        apply_matrix(translate(6, -3.65, 1.275))
+        apply_matrix(scale(0.25, 0.25, 0.25))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(rotate_y(np.radians(45)))
+        apply_matrix(rotate_z(np.radians(180)))
+        draw_char_c(depth=1.0, thickness=0.5)
+        glPopMatrix()
+        
+        glPushMatrix()
+        glColor3f(0.9, 0.1, 0.1)
+        apply_matrix(translate(6, -3.65, 1.725))
+        apply_matrix(scale(0.25, 0.25, 0.25))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(rotate_y(np.radians(45)))
+        apply_matrix(rotate_z(np.radians(180)))
+        draw_char_c(depth=1.0, thickness=0.5)
+        glPopMatrix()
+        
         pygame.display.flip()
         pygame.time.wait(10)
 
