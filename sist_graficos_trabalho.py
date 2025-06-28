@@ -488,205 +488,206 @@ def main():
         # Aponta a câmera da sua posição calculada para a origem (0,0,0)
         gluLookAt(cam_x, cam_y, cam_z, 0, 0, 0, 0, 1, 0)
 
-
         #Cubo central c3
         glPushMatrix()
         glMultMatrixf(scale(4, 6, 3))
         draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
         glPopMatrix()
-
+        
         # JANELAS DO CUBO CENTRAL
+        
         # 1 janela 
         glPushMatrix()
-        glTranslatef(4.01, 3, 2.2)
-        glRotatef(90, 0, 1, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(4.01, 3, 2.2))
+        apply_matrix(rotate_y(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-
+        
         # 2 janela do meio
         glPushMatrix()
-        glTranslatef(4.01, 3, 0.8)
-        glRotatef(90, 0, 1, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(4.01, 3, 0.8))
+        apply_matrix(rotate_y(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-
+        
         # 3 janela do 1 lado
         glPushMatrix()
-        glTranslatef(4.01, 4.5, 0.8)
-        glRotatef(90, 0, 1, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(4.01, 4.5, 0.8))
+        apply_matrix(rotate_y(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-
-         # 4 janela do 1 lado
+        
+        # 4 janela do 1 lado
         glPushMatrix()
-        glTranslatef(4.01, 4.5, 2.2)
-        glRotatef(90, 0, 1, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(4.01, 4.5, 2.2))
+        apply_matrix(rotate_y(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
         
         # 5 janela 
         glPushMatrix()
-        glTranslatef(4.01, 1.5, 2.2)
-        glRotatef(90, 0, 1, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(4.01, 1.5, 2.2))
+        apply_matrix(rotate_y(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
         
-
         # 6 janela 
         glPushMatrix()
-        glTranslatef(4.01, 1.5, 0.8)
-        glRotatef(90, 0, 1, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(4.01, 1.5, 0.8))
+        apply_matrix(rotate_y(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-
+        
         # 7 janela
         glPushMatrix()
-        glTranslatef(-0.1, 1.5, 0.8)
-        glRotatef(90, 0, 1, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(-0.1, 1.5, 0.8))
+        apply_matrix(rotate_y(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-
+        
         # 8 janela 
         glPushMatrix()
-        glTranslatef(-0.1, 1.5, 2.2)
-        glRotatef(90, 0, 1, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(-0.1, 1.5, 2.2))
+        apply_matrix(rotate_y(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-
+        
         # 9 janela 
         glPushMatrix()
-        glTranslatef(-0.1, 3, 2.2)
-        glRotatef(90, 0, 1, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(-0.1, 3, 2.2))
+        apply_matrix(rotate_y(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-
-         # 10 janela 
+        
+        # 10 janela 
         glPushMatrix()
-        glTranslatef(-0.1, 3, 0.8)
-        glRotatef(90, 0, 1, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(-0.1, 3, 0.8))
+        apply_matrix(rotate_y(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-
+        
         # 11 janela 
         glPushMatrix()
-        glTranslatef(-0.1, 4.5, 0.8)
-        glRotatef(90, 0, 1, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(-0.1, 4.5, 0.8))
+        apply_matrix(rotate_y(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-
+        
         # 12 janela 
         glPushMatrix()
-        glTranslatef(-0.1, 4.5, 2.2)
-        glRotatef(90, 0, 1, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(-0.1, 4.5, 2.2))
+        apply_matrix(rotate_y(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix() 
-
+        
         #Retangulo maior
         glPushMatrix()
         apply_matrix(scale(12, 4, 3.2))
         apply_matrix(translate(-0.335, 1.5, 0))
         draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
         glPopMatrix()
-
+        
         #JANELAS DO RETANGULO MAIOR
-
+        
         # 1 janela 
         glPushMatrix()
-        glTranslatef(5.01, 5.99, 2.2)
-        glRotatef(90, 1, 0, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(5.01, 5.99, 2.2))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-
+        
         # 2 janela 
         glPushMatrix()
-        glTranslatef(5.01, 5.99, 0.8)
-        glRotatef(90, 1, 0, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(5.01, 5.99, 0.8))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-
+        
         # 3 janela 
         glPushMatrix()
-        glTranslatef(6.5, 5.99, 0.8)
-        glRotatef(90, 1, 0, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(6.5, 5.99, 0.8))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-
+        
         # 4  janela 
         glPushMatrix()
-        glTranslatef(6.5, 5.99, 2.2)
-        glRotatef(90, 1, 0, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(6.5, 5.99, 2.2))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-
+        
         # 5 janela 
         glPushMatrix()
-        glTranslatef(-1, 5.99, 2.2)
-        glRotatef(90, 1, 0, 0)
-        glScalef(1, 1, 1) 
+        apply_matrix(translate(-1, 5.99, 2.2))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-
-         # 6 janela 
-        glPushMatrix()
-        glTranslatef(-2.5, 5.99, 2.2)
-        glRotatef(90, 1, 0, 0)
-        glScalef(1, 1, 1) 
-        apply_material(MAT_VIDRO_AZULADO)
-        draw_glass_pane()
-        glPopMatrix()
-
-         # 7 janela 
-        glPushMatrix()
-        glTranslatef(-2.5, 5.99, 0.8)
-        glRotatef(90, 1, 0, 0)
-        glScalef(1, 1, 1) 
-        apply_material(MAT_VIDRO_AZULADO)
-        draw_glass_pane()
-        glPopMatrix()
-
-         # 8 janela 
-        glPushMatrix()
-        glTranslatef(-1, 5.99, 0.8)
-        glRotatef(90, 1, 0, 0)
-        glScalef(1, 1, 1) 
-        apply_material(MAT_VIDRO_AZULADO)
-        draw_glass_pane()
-        glPopMatrix()
-
         
+        # 6 janela 
+        glPushMatrix()
+        apply_matrix(translate(-2.5, 5.99, 2.2))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+        
+        # 7 janela 
+        glPushMatrix()
+        apply_matrix(translate(-2.5, 5.99, 0.8))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+        
+        # 8 janela 
+        glPushMatrix()
+        apply_matrix(translate(-1, 5.99, 0.8))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1, 1, 1)) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+        
+        
+                
+                
         #Cubo da direita - aplicar rotação (ele é um material agora, e não só uma cor)
         glPushMatrix()
         apply_matrix(scale(4, 4,3.2))
