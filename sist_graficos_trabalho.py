@@ -133,42 +133,55 @@ def apply_matrix(matriz):
     glMultMatrixf(matriz.T)
 
 
-# Alteração do draw_cube para pegar as vertices e fazer a tonalização gouraud     
-def draw_cube(vertex_colors=None):
+# Alteração do draw_cube para pegar as vertices e fazer a tonalização (material)     
+# Altere a assinatura da função para aceitar os materiais
+def draw_cube(material_teto, material_paredes, material_base=None):
     vertices_cubo = [
-        (0, 0, 0), # 0: base, trás, esquerda
-        (1, 0, 0), # 1: base, trás, direita
-        (1, 1, 0), # 2: topo, trás, direita
-        (0, 1, 0), # 3: topo, trás, esquerda
-        (0, 0, 1), # 4: base, frente, esquerda
-        (1, 0, 1), # 5: base, frente, direita
-        (1, 1, 1), # 6: topo, frente, direita
-        (0, 1, 1), # 7: topo, frente, esquerda
-    ]
-    
+        (0, 0, 0), 
+        (1, 0, 0), 
+        (1, 1, 0), 
+        (0, 1, 0), 
+        (0, 0, 1), 
+        (1, 0, 1), 
+        (1, 1, 1), 
+        (0, 1, 1), 
+     ]
     faces_cubo = [
-        (3, 2, 6, 7), # Topo
-        (0, 4, 5, 1), # Base
-        (4, 5, 6, 7), # Frente
-        (0, 1, 2, 3), # Trás
-        (0, 3, 7, 4), # Esquerda
-        (1, 5, 6, 2)  # Direita
-    ]
+        (4, 5, 6, 7),  # Topo (Y=1)
+        (1, 0, 3, 2),  # Fundo (Y=0)
+        (0, 4, 7, 3),  # Esquerda (X=0)
+        (5, 1, 2, 6),  # Direita (X=1)
+        (7, 6, 2, 3),  # Frente (olhando na direção -Z, se Z aumenta para longe)
+        (1, 5, 4, 0)   # Trás (olhando na direção +Z)
+      ]
+
+
+    # Se nenhum material for fornecido para a base, use o mesmo das paredes
+    if material_base is None:
+        material_base = material_paredes
 
     glBegin(GL_QUADS)
-    for face in faces_cubo:
+    # Usamos enumerate para obter o índice (i) de cada face
+    for i, face in enumerate(faces_cubo):
+        # Decide qual material aplicar com base no índice da face
+        if i == 0: # Índice 0 é o Topo
+            apply_material(material_teto)
+        elif i == 1: # Índice 1 é a Base
+            apply_material(material_base)
+        else: # Todas as outras faces são paredes
+            apply_material(material_paredes)
+
+        # O cálculo da normal e o desenho dos vértices continua igual
         v0, v1, v2 = vertices_cubo[face[0]], vertices_cubo[face[1]], vertices_cubo[face[2]]
         normal = calcular_normal(v0, v1, v2)
         
         for vertice_index in face:
-            if vertex_colors and len(vertex_colors) == 8:
-                glColor3fv(vertex_colors[vertice_index])
-            
             glNormal3fv(normal)
             glVertex3fv(vertices_cubo[vertice_index])
     glEnd()
-    
-def draw_hex():
+
+# vou mudar a função para suportar o material no hex       
+def draw_hex(material_topo, material_laterais, material_base=None):
     radius = 1
     height = 1
     num_lados = 6
@@ -176,24 +189,31 @@ def draw_hex():
 
     base = np.array([[radius * np.cos(a), radius * np.sin(a), 0] for a in angulos])
     topo = base + np.array([0, 0, height])
+  
+    # se eu não definir a cor da base, a cor da base vai ser igual ao material das laterais
+    if material_base is None:
+        material_base = material_laterais
 
-    # --- Base de baixo ---
+    # material Base 
+    apply_material(material_base)
     glBegin(GL_POLYGON)
     normal_base = [0.0, 0.0, -1.0]
     for v in reversed(base):
-        glNormal3fv(normal_base) # Normal definida por vértice
+        glNormal3fv(normal_base)
         glVertex3fv(v)
-    glEnd()
+    glEnd()    
 
-    # --- Base de cima ---
+    # teto 
+    apply_material(material_topo)
     glBegin(GL_POLYGON)
     normal_topo = [0.0, 0.0, 1.0]
     for v in topo:
-        glNormal3fv(normal_topo) # Normal definida por vértice
+        glNormal3fv(normal_topo)
         glVertex3fv(v)
     glEnd()
 
-    # --- Faces Laterais ---
+    # paredes 
+    apply_material(material_laterais)
     glBegin(GL_QUADS)
     for i in range(num_lados):
         v1, v2 = base[i], topo[i]
@@ -212,6 +232,43 @@ def draw_hex():
         glVertex3fv(v4)
     glEnd()
 
+# quadrado de vidro 
+def draw_glass_pane():
+    # Vértices de -0.5 a +0.5, para que o centro seja (0,0,0)
+    vertices = [
+        (-0.5, -0.5, 0.0), # Canto inferior esquerdo
+        ( 0.5, -0.5, 0.0), # Canto inferior direito
+        ( 0.5,  0.5, 0.0), # Canto superior direito
+        (-0.5,  0.5, 0.0)  # Canto superior esquerdo
+    ]
+    
+    # A normal para um plano XY aponta para a direção Z positiva
+    normal = [0.0, 0.0, 1.0]
+
+    glBegin(GL_QUADS)
+    glNormal3fv(normal)
+    for v in vertices:
+        glVertex3fv(v)
+    glEnd()    
+
+# hexagono de vidro
+def  draw_glass_hexagon():
+    radius = 1
+    num_lados = 6
+    angulos = np.linspace(0, 2 * np.pi, num=num_lados, endpoint=False)
+    vertices = np.array(
+        [[radius * np.cos(a), radius * np.sin(a), 0] for a in angulos],
+        dtype=np.float32
+    )
+
+    normal = [0.0, 0.0, 1.0]
+
+    glBegin(GL_POLYGON)
+    glNormal3fv(normal)
+    for v in vertices:
+        glVertex3fv(v)
+    glEnd()
+
 
 def apply_camera(pos, look, up):
     glMatrixMode(GL_MODELVIEW)
@@ -226,6 +283,13 @@ def get_direction(yaw, pitch):
     z = np.cos(rad_pitch) * np.sin(rad_yaw)
     return np.array([x, y, z], dtype=np.float32)
 
+# uma função para facilidar a implementação do gl_material as formas.
+def apply_material(material):
+    glMaterialfv(GL_FRONT, GL_AMBIENT, material["ambient"])
+    glMaterialfv(GL_FRONT, GL_DIFFUSE, material["diffuse"])
+    glMaterialfv(GL_FRONT, GL_SPECULAR, material["specular"])
+    glMaterialf(GL_FRONT, GL_SHININESS, material["shininess"])
+
 def main():
     # Inicializa o Pygame
     pygame.init()
@@ -239,16 +303,22 @@ def main():
     glEnable(GL_DEPTH_TEST)
     # Escolhendo o modelo de analise de profundidade ( LESS)
     glDepthFunc(GL_LEQUAL)
+
+    #ativando blend e a formula padrão para tranfarencia
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
     
     
     # ATIVA ILUMINAÇÃO
     # Habilita o sistema de iluminação
     glEnable(GL_LIGHTING)
     # Liga a primeira fonte de luz
-    glEnable(GL_LIGHT0)         
-    glEnable(GL_COLOR_MATERIAL)
-    # Habilita o uso da cor definida em glColor() como material para iluminação 
-    glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE)
+    glEnable(GL_LIGHT0)   
+
+    # remover a influencia de GL_color dos objetos da cena       
+    #glEnable(GL_COLOR_MATERIAL)
+    #glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE)
 
     # modo de sombreamento para gouraud ( suave)
     glShadeModel(GL_SMOOTH)
@@ -319,19 +389,52 @@ def main():
     #]
 
     #definindo as cores para degrade (teste)
-    COR_BASE_ESCURA = (0.3, 0.15, 0.05) # Um marrom bem escuro
-    COR_TOPO_CLARA = (0.8, 0.7, 0.5)   
+    #COR_BASE_ESCURA = (0.3, 0.15, 0.05) # Um marrom bem escuro
+    #COR_TOPO_CLARA = (1, 1, 1)   
 
-    CORES_DEGRADE_CUBO = [
-    COR_BASE_ESCURA, # Vértice 0 (base)
-    COR_BASE_ESCURA, # Vértice 1 (base)
-    COR_BASE_ESCURA, # Vértice 2 (base)
-    COR_BASE_ESCURA, # Vértice 3 (base)
-    COR_TOPO_CLARA,  # Vértice 4 (topo)
-    COR_TOPO_CLARA,  # Vértice 5 (topo)
-    COR_TOPO_CLARA,  # Vértice 6 (topo)
-    COR_TOPO_CLARA,  # Vértice 7 (topo)
-]
+    #CORES_DEGRADE_CUBO = [
+    #COR_BASE_ESCURA, # Vértice 0 (base)
+    #COR_BASE_ESCURA, # Vértice 1 (base)
+    #COR_BASE_ESCURA, # Vértice 2 (base)
+    #COR_BASE_ESCURA, # Vértice 3 (base)
+    #COR_TOPO_CLARA,  # Vértice 4 (topo)
+    #COR_TOPO_CLARA,  # Vértice 5 (topo)
+    #COR_TOPO_CLARA,  # Vértice 6 (topo)
+    #COR_TOPO_CLARA,  # Vértice 7 (topo)
+#]
+    # Antes definimos as cores atreves de RGB, agora vamos determinar como um material se comporta 
+    # interagindo com a luz. 
+
+    MAT_PAREDE_MARROM = {
+    "ambient": [0.4, 0.2, 0.1, 1.0], 
+    "diffuse": [0.5, 0.25, 0.0, 1.0], 
+    "specular": [0.1, 0.1, 0.1, 1.0], 
+    "shininess": 10.0                 
+    }
+
+    # Material para os cubos e hexágonos brancos/cinzas
+    MAT_CONCRETO_BRANCO = {
+    "ambient": [0.7, 0.7, 0.7, 1.0],
+    "diffuse": [0.9, 0.9, 0.9, 1.0], 
+    "specular": [1.0, 1.0, 1.0, 1.0], 
+    "shininess": 100.0  
+    }     
+
+    MAT_VIDRO_AZULADO = {
+    "ambient": [0.1, 0.15, 0.2, 0.3],
+    "diffuse": [0.2, 0.3, 0.4, 0.3],
+    "specular": [1.0, 1.0, 1.0, 1.0],
+    "shininess": 120.0
+    }  
+
+    MAT_SOLO_PRETO = {
+    "ambient": [0.05, 0.05, 0.05, 1.0],
+    "diffuse": [0.1, 0.1, 0.1, 1.0],
+    "specular": [0.0, 0.0, 0.0, 1.0],
+    "shininess": 5.0
+    }
+
+     
 
 
     # Loop principal
@@ -389,23 +492,249 @@ def main():
         #Cubo central c3
         glPushMatrix()
         glMultMatrixf(scale(4, 6, 3))
-        draw_cube(vertex_colors=CORES_DEGRADE_CUBO)
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
+        glPopMatrix()
+
+        # JANELAS DO CUBO CENTRAL
+        # 1 janela 
+        glPushMatrix()
+        glTranslatef(4.01, 3, 2.2)
+        glRotatef(90, 0, 1, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # 2 janela do meio
+        glPushMatrix()
+        glTranslatef(4.01, 3, 0.8)
+        glRotatef(90, 0, 1, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # 3 janela do 1 lado
+        glPushMatrix()
+        glTranslatef(4.01, 4.5, 0.8)
+        glRotatef(90, 0, 1, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+         # 4 janela do 1 lado
+        glPushMatrix()
+        glTranslatef(4.01, 4.5, 2.2)
+        glRotatef(90, 0, 1, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
         glPopMatrix()
         
+        # 5 janela 
+        glPushMatrix()
+        glTranslatef(4.01, 1.5, 2.2)
+        glRotatef(90, 0, 1, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+        
+
+        # 6 janela 
+        glPushMatrix()
+        glTranslatef(4.01, 1.5, 0.8)
+        glRotatef(90, 0, 1, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # 7 janela
+        glPushMatrix()
+        glTranslatef(-0.1, 1.5, 0.8)
+        glRotatef(90, 0, 1, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # 8 janela 
+        glPushMatrix()
+        glTranslatef(-0.1, 1.5, 2.2)
+        glRotatef(90, 0, 1, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # 9 janela 
+        glPushMatrix()
+        glTranslatef(-0.1, 3, 2.2)
+        glRotatef(90, 0, 1, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+         # 10 janela 
+        glPushMatrix()
+        glTranslatef(-0.1, 3, 0.8)
+        glRotatef(90, 0, 1, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # 11 janela 
+        glPushMatrix()
+        glTranslatef(-0.1, 4.5, 0.8)
+        glRotatef(90, 0, 1, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # 12 janela 
+        glPushMatrix()
+        glTranslatef(-0.1, 4.5, 2.2)
+        glRotatef(90, 0, 1, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix() 
+
         #Retangulo maior
         glPushMatrix()
-        apply_matrix(scale(12, 4, 3))
+        apply_matrix(scale(12, 4, 3.2))
         apply_matrix(translate(-0.335, 1.5, 0))
-        draw_cube(vertex_colors=CORES_DEGRADE_CUBO)
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
         glPopMatrix()
-        
-        #Cubo da direita - aplicar rotação
+
+        #JANELAS DO RETANGULO MAIOR
+
+        # 1 janela 
         glPushMatrix()
-        glColor3f(0.9, 0.9, 0.9)
-        apply_matrix(scale(4, 4, 3))
+        glTranslatef(5.01, 5.99, 2.2)
+        glRotatef(90, 1, 0, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # 2 janela 
+        glPushMatrix()
+        glTranslatef(5.01, 5.99, 0.8)
+        glRotatef(90, 1, 0, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # 3 janela 
+        glPushMatrix()
+        glTranslatef(6.5, 5.99, 0.8)
+        glRotatef(90, 1, 0, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # 4  janela 
+        glPushMatrix()
+        glTranslatef(6.5, 5.99, 2.2)
+        glRotatef(90, 1, 0, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # 5 janela 
+        glPushMatrix()
+        glTranslatef(-1, 5.99, 2.2)
+        glRotatef(90, 1, 0, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+         # 6 janela 
+        glPushMatrix()
+        glTranslatef(-2.5, 5.99, 2.2)
+        glRotatef(90, 1, 0, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+         # 7 janela 
+        glPushMatrix()
+        glTranslatef(-2.5, 5.99, 0.8)
+        glRotatef(90, 1, 0, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+         # 8 janela 
+        glPushMatrix()
+        glTranslatef(-1, 5.99, 0.8)
+        glRotatef(90, 1, 0, 0)
+        glScalef(1, 1, 1) 
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        
+        #Cubo da direita - aplicar rotação (ele é um material agora, e não só uma cor)
+        glPushMatrix()
+        apply_matrix(scale(4, 4,3.2))
         apply_matrix(translate(2, 1.5, -0.01))
         apply_matrix(rotate_z(np.radians(20)))
-        draw_cube()
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
+        glPopMatrix()
+
+        # JANELAS DO CUBO DA DIREITA
+
+        # janela 1 
+        glPushMatrix()
+        apply_matrix(translate(9, 6.3, 0.8))
+        apply_matrix(rotate_z(np.radians(20)))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1.0, 1, 1.0))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # janela 2
+        glPushMatrix()
+        apply_matrix(translate(9, 6.3, 2.2))
+        apply_matrix(rotate_z(np.radians(20)))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1.0, 1, 1.0))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # janela 3
+        glPushMatrix()
+        apply_matrix(translate(10.5, 6.90, 2.2))
+        apply_matrix(rotate_z(np.radians(20)))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1.0, 1, 1.0))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # janela 4
+        glPushMatrix()
+        apply_matrix(translate(10.5, 6.90, 0.8))
+        apply_matrix(rotate_z(np.radians(20)))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1.0, 1, 1.0))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
         glPopMatrix()
         
         #Cubo menor da direita
@@ -413,8 +742,22 @@ def main():
         apply_matrix(scale(3, 3, 3))
         apply_matrix(translate(3.7, 2.7, 0))
         apply_matrix(rotate_z(np.radians(20)))
-        draw_cube(vertex_colors=CORES_DEGRADE_CUBO)
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
         glPopMatrix()
+
+        #JANELAS PARA O CUBO MENOR DA DIREITA
+
+        #JANELA 1 
+        glPushMatrix()
+        apply_matrix(translate(12.7, 8.5 , 1.5))
+        apply_matrix(rotate_z(np.radians(20)))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(2, 1, 2))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+        
+
         
         #Cubo da esquerda - aplicar rotação
         glPushMatrix()
@@ -422,40 +765,218 @@ def main():
         apply_matrix(scale(4, 4, 3))
         apply_matrix(translate(-1, 1.5, -0.01))
         apply_matrix(rotate_z(np.radians(70)))
-        draw_cube()
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
         glPopMatrix()
-        
+
+        # VIDROS DO CUBO DA ESQUERDA
+
+        # janela 1 
+        glPushMatrix()
+        apply_matrix(translate(-5, 6.3, 0.8))
+        apply_matrix(rotate_z(np.radians(-20)))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1, 1, 1))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+         # janela 2
+        glPushMatrix()
+        apply_matrix(translate(-5, 6.3, 2.2))
+        apply_matrix(rotate_z(np.radians(-20)))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1, 1, 1))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        #Janela 3 
+        glPushMatrix()
+        apply_matrix(translate(-6.5, 6.9, 2.2))
+        apply_matrix(rotate_z(np.radians(-20)))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1, 1, 1))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+         #Janela 4
+        glPushMatrix()
+        apply_matrix(translate(-6.5, 6.9, 0.8))
+        apply_matrix(rotate_z(np.radians(-20)))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(1, 1, 1))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
         #Cubo menor da esquerda
         glPushMatrix()
         apply_matrix(scale(3, 3, 3))
         apply_matrix(translate(-2.35, 2.7, 0))
         apply_matrix(rotate_z(np.radians(70)))
-        draw_cube(vertex_colors=CORES_DEGRADE_CUBO)
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
+        glPopMatrix()
+
+        # JANELAS DO CUBO MENOR DA ESQUERDA
+
+        #JANELA 1 
+        glPushMatrix()
+        apply_matrix(translate(-8.7, 8.5 , 1.5))
+        apply_matrix(rotate_z(np.radians(-20)))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(2, 1, 2))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
         glPopMatrix()
         
+
         #hexagono do hall
         glPushMatrix()
-        glColor3f(0.9, 0.9, 0.9)
-        apply_matrix(scale(2.5, 2.5, 3))
+        apply_matrix(scale(2.5, 2.5, 3.5))
         apply_matrix(translate(0.78, -0.35, 0.01))
-        draw_hex()
+        draw_hex(material_topo= MAT_CONCRETO_BRANCO, material_laterais=MAT_PAREDE_MARROM, material_base= MAT_SOLO_PRETO)
+        glPopMatrix()
+
+        #JANELA DO TOPO DO HEXAGONO
+
+        # Janela do TOPO 
+        #JANELA 1 
+        glPushMatrix()
+        apply_matrix(translate(2.0, -0.9 , 3.55))
+        apply_matrix(rotate_z(np.radians(90)))
+        apply_matrix(rotate_z(np.radians(-30)))
+        apply_matrix(scale(1.2, 1.2, 1.2))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_hexagon()
         glPopMatrix()
         
         #Cubo menor do hall - direita
         glPushMatrix()
-        apply_matrix(scale(3, 3, 3))
+        apply_matrix(scale(3, 3, 4))
         apply_matrix(translate(-0.18, -1.7, 0))
         apply_matrix(rotate_z(np.radians(45)))
-        draw_cube(vertex_colors=CORES_DEGRADE_CUBO)
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
+        glPopMatrix()
+
+        #JANELAS DO CUBO MENOR DO HALL - DIREITA
+
+        #Janela 1
+        glPushMatrix()
+        apply_matrix(translate(-1.8, -2, 2))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(rotate_y(np.radians(45)))
+        apply_matrix(scale(0.5, 3.5, 1))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        #Janela 2
+        glPushMatrix()
+        apply_matrix(translate(-1.8, -3.95 , 3))
+        apply_matrix(rotate_z(np.radians(-45)))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(2.5, 1, 1.5))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # janela 3 
+        glPushMatrix()
+        apply_matrix(translate(-1.8, -3.95 , 1.5))
+        apply_matrix(rotate_z(np.radians(-45)))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(2.5, 1, 1.5))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        # Janela 4
+
+        glPushMatrix()
+        apply_matrix(translate(0.65, -3.95 , 1.5))
+        apply_matrix(rotate_z(np.radians(45)))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(2.5, 1, 1.5))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+        
+        # Janela 5 
+
+        glPushMatrix()
+        apply_matrix(translate(0.65, -3.95 , 3))
+        apply_matrix(rotate_z(np.radians(45)))
+        apply_matrix(rotate_x(np.radians(90)))
+        apply_matrix(scale(2.5, 1, 1.5))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
         glPopMatrix()
         
         #Cubo menor do hall - esquerda
         glPushMatrix()
-        apply_matrix(scale(3, 3, 3))
+        apply_matrix(scale(3, 3, 4))
         apply_matrix(translate(1.48, -0.3, 0))
         apply_matrix(rotate_z(np.radians(-135)))
-        draw_cube(vertex_colors=CORES_DEGRADE_CUBO)
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
         glPopMatrix()
+
+        # JANELAS MENOR DO HALL - ESQUERDA
+
+        #janela 1 
+        glPushMatrix()
+        apply_matrix(translate(5.5, -4.1, 3.0))
+        apply_matrix(rotate_x(np.radians(-90)))
+        apply_matrix(rotate_y(np.radians(-45)))
+        apply_matrix(scale(2.5, 1, 1.5))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        #Janela 2 
+
+        glPushMatrix()
+        apply_matrix(translate(5.5, -4.1, 1.5))
+        apply_matrix(rotate_x(np.radians(-90)))
+        apply_matrix(rotate_y(np.radians(-45)))
+        apply_matrix(scale(2.5, 1, 1.5))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        #Janela 3 
+        glPushMatrix()
+        apply_matrix(translate(5.5, -1.8, 2))
+        apply_matrix(rotate_x(np.radians(-90)))
+        apply_matrix(rotate_y(np.radians(-135)))
+        apply_matrix(scale(0.5, 3.5, 1))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+        #janela 4 
+        glPushMatrix()
+        apply_matrix(translate(3.2, -4.0, 1.5))
+        apply_matrix(rotate_x(np.radians(-90)))
+        apply_matrix(rotate_y(np.radians(-135)))
+        apply_matrix(scale(2.5, 1, 1.5))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+         #janela 5
+        glPushMatrix()
+        apply_matrix(translate(3.2, -4.0, 3.0))
+        apply_matrix(rotate_x(np.radians(-90)))
+        apply_matrix(rotate_y(np.radians(-135)))
+        apply_matrix(scale(2.5, 1, 1.5))
+        apply_material(MAT_VIDRO_AZULADO)
+        draw_glass_pane()
+        glPopMatrix()
+
+
+
+
         
         # --- 5. Atualizar a Tela ---
         pygame.display.flip()
