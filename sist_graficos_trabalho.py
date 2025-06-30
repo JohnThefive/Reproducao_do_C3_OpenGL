@@ -155,6 +155,8 @@ def draw_cube(material_teto, material_paredes, material_base=None):
         (1, 5, 4, 0)   # Trás (olhando na direção +Z)
       ]
 
+    # Coordenadas de textura para os 4 cantos de uma face
+    tex_coords = [(0,0), (0,1), (1,1), (1,0)]
 
     # Se nenhum material for fornecido para a base, use o mesmo das paredes
     if material_base is None:
@@ -175,8 +177,11 @@ def draw_cube(material_teto, material_paredes, material_base=None):
         v0, v1, v2 = vertices_cubo[face[0]], vertices_cubo[face[1]], vertices_cubo[face[2]]
         normal = calcular_normal(v0, v1, v2)
         
-        for vertice_index in face:
+        # Usamos enumerate para obter o índice do vértice (0, 1, 2, 3)
+        for vert_idx_in_face, vertice_index in enumerate(face):
             glNormal3fv(normal)
+            # Usamos o índice do vértice, não o da face
+            glTexCoord2f(tex_coords[vert_idx_in_face][0], tex_coords[vert_idx_in_face][1]) 
             glVertex3fv(vertices_cubo[vertice_index])
     glEnd()
 
@@ -189,6 +194,7 @@ def draw_hex(material_topo, material_laterais, material_base=None):
 
     base = np.array([[radius * np.cos(a), radius * np.sin(a), 0] for a in angulos])
     topo = base + np.array([0, 0, height])
+    tex_coords = [(0, 0), (0, 1), (1, 1), (1, 0)] # Coordenadas para os lados
   
     # se eu não definir a cor da base, a cor da base vai ser igual ao material das laterais
     if material_base is None:
@@ -218,18 +224,15 @@ def draw_hex(material_topo, material_laterais, material_base=None):
     for i in range(num_lados):
         v1, v2 = base[i], topo[i]
         v3, v4 = topo[(i + 1) % num_lados], base[(i + 1) % num_lados]
-        
+        vertices_face = [v1, v4, v3, v2]
         normal_lateral = calcular_normal(v1, v4, v2)
         
         # Define a normal para cada um dos 4 vértices da face
-        glNormal3fv(normal_lateral)
-        glVertex3fv(v1)
-        glNormal3fv(normal_lateral)
-        glVertex3fv(v2)
-        glNormal3fv(normal_lateral)
-        glVertex3fv(v3)
-        glNormal3fv(normal_lateral)
-        glVertex3fv(v4)
+        # O loop interno agora funciona porque 'vertices_face' existe
+        for j, vert in enumerate(vertices_face):
+            glNormal3fv(normal_lateral)
+            glTexCoord2f(tex_coords[j][0], tex_coords[j][1]) 
+            glVertex3fv(vert)
     glEnd()
 
 # quadrado de vidro 
@@ -282,7 +285,41 @@ def get_direction(yaw, pitch):
     y = np.sin(rad_pitch)
     z = np.cos(rad_pitch) * np.sin(rad_yaw)
     return np.array([x, y, z], dtype=np.float32)
+def load_texture(filename):
+    """
+    Carrega uma imagem e a converte em uma textura OpenGL.
+    Retorna o ID da textura.
+    """
+    # Carrega a imagem usando o Pygame
+    texture_surface = pygame.image.load(filename)
+    
+    # Converte a superfície do Pygame para uma string de dados que o OpenGL pode usar
+    # O 'True' no final inverte a imagem verticalmente, o que é necessário pois
+    # o sistema de coordenadas do Pygame (0,0 no topo-esquerda) é diferente do 
+    # sistema de coordenadas de textura do OpenGL (0,0 no canto inferior-esquerdo).
+    texture_data = pygame.image.tostring(texture_surface, "RGBA", True)
+    
+    width = texture_surface.get_width()
+    height = texture_surface.get_height()
 
+    # Gera um ID para a nossa textura
+    texture_id = glGenTextures(1)
+
+    # Diz ao OpenGL que vamos trabalhar com a textura que acabamos de gerar
+    glBindTexture(GL_TEXTURE_2D, texture_id)
+
+    # Define como a textura deve se comportar quando é menor ou maior que a área do polígono
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+    
+    # Define como a textura deve se repetir. GL_REPEAT é perfeito para tijolos.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
+
+    # Envia os dados da imagem (texture_data) para a placa de vídeo
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture_data)
+
+    return texture_id
 # uma função para facilidar a implementação do gl_material as formas.
 def apply_material(material):
     glMaterialfv(GL_FRONT, GL_AMBIENT, material["ambient"])
@@ -323,6 +360,16 @@ def main():
     # modo de sombreamento para gouraud ( suave)
     glShadeModel(GL_SMOOTH)
 
+
+    try:
+        tijolinhos_texture_id = load_texture("tijolinhos.jpg")
+    except pygame.error as e:
+        print(f"Erro ao carregar a textura: {e}")
+        print("Certifique-se que 'tijolinhos.jpg' está na mesma pasta do script.")
+        return
+    
+    
+    
     #CONFIGURANDO A LUZ 
     #Luz Ambiente da fonte (luz fraca que preenche a cena)
     luz_ambiente = [0.3, 0.3, 0.3, 1.0] 
@@ -331,7 +378,7 @@ def main():
     #Luz Especular da fonte (a cor do brilho)
     luz_especular = [1.0, 1.0, 1.0, 1.0]
     #Posição da luz no espaço
-    posicao_luz = [5.0, 10.0, 10.0, 1.0]
+    posicao_luz = [5.0, 10.0, 10.0, 0.0]
     
     
     #CONFIGURAR O MATERIAL
@@ -411,6 +458,12 @@ def main():
     "specular": [0.1, 0.1, 0.1, 1.0], 
     "shininess": 10.0                 
     }
+    MAT_PAREDE_TEXTURIZADA = {
+    "ambient": [0.8, 0.8, 0.8, 1.0],  # Cor ambiente para sombras
+    "diffuse": [1.0, 1.0, 1.0, 1.0],  # BRANCO para não tingir a textura
+    "specular": [0.1, 0.1, 0.1, 1.0], # Um pouco de brilho
+    "shininess": 10.0                 
+    }
 
     # Material para os cubos e hexágonos brancos/cinzas
     MAT_CONCRETO_BRANCO = {
@@ -488,10 +541,21 @@ def main():
         # Aponta a câmera da sua posição calculada para a origem (0,0,0)
         gluLookAt(cam_x, cam_y, cam_z, 0, 0, 0, 0, 1, 0)
 
+
+
         #Cubo central c3
         glPushMatrix()
-        glMultMatrixf(scale(4, 6, 3))
-        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
+        glEnable(GL_TEXTURE_2D)
+        glMultMatrixf(scale(4, 5.5, 4))
+        apply_matrix(translate(-0.01, 0.1,0))
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_TEXTURIZADA, material_base=MAT_SOLO_PRETO)
+        glDisable(GL_TEXTURE_2D)
+        glPopMatrix()
+        #Cubo central c3 - teto
+        glPushMatrix()
+        glMultMatrixf(scale(3.9, 5.49, 4.1))
+        apply_matrix(translate(0, 0.1,0))
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_TEXTURIZADA, material_base=MAT_SOLO_PRETO)
         glPopMatrix()
         
         # JANELAS DO CUBO CENTRAL
@@ -603,12 +667,27 @@ def main():
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix() 
-        
+
         #Retangulo maior
         glPushMatrix()
-        apply_matrix(scale(12, 4, 3.2))
+        glEnable(GL_TEXTURE_2D)
+        apply_matrix(scale(12, 4, 4))
         apply_matrix(translate(-0.335, 1.5, 0))
-        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
+        apply_matrix(translate(0, -0.04, 0))
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_TEXTURIZADA, material_base=MAT_SOLO_PRETO)
+        glDisable(GL_TEXTURE_2D)
+        glPopMatrix()
+        #Retangulo maior
+        glPushMatrix()
+        apply_matrix(scale(11.9, 4, 4.1))
+        apply_matrix(translate(-0.335, 1.5, 0))
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_TEXTURIZADA, material_base=MAT_SOLO_PRETO)
+        glPopMatrix()
+        #Retangulo maior teto
+        glPushMatrix()
+        apply_matrix(scale(12, 2.0001, 4.50001))
+        apply_matrix(translate(-0.335, 4, 0))
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_CONCRETO_BRANCO, material_base=MAT_SOLO_PRETO)
         glPopMatrix()
         
         #JANELAS DO RETANGULO MAIOR
@@ -690,10 +769,19 @@ def main():
                 
         #Cubo da direita - aplicar rotação (ele é um material agora, e não só uma cor)
         glPushMatrix()
-        apply_matrix(scale(4, 4,3.2))
+        apply_matrix(scale(4, 4,4))
         apply_matrix(translate(2, 1.5, -0.01))
         apply_matrix(rotate_z(np.radians(20)))
-        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_TEXTURIZADA, material_base=MAT_SOLO_PRETO)
+        glPopMatrix()
+        #Cubo da direita teto
+        glPushMatrix()
+        apply_matrix(scale(3.8, 4.2,4.5))
+        apply_matrix(translate(2, 1.5, -0.01))
+        apply_matrix(rotate_z(np.radians(20)))
+        apply_matrix(scale(1, 0.5,1))
+        apply_matrix(translate(0.1, 0.7, 0))
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_TEXTURIZADA, material_base=MAT_SOLO_PRETO)
         glPopMatrix()
 
         # JANELAS DO CUBO DA DIREITA
@@ -740,10 +828,12 @@ def main():
         
         #Cubo menor da direita
         glPushMatrix()
+        glEnable(GL_TEXTURE_2D)
         apply_matrix(scale(3, 3, 3))
         apply_matrix(translate(3.7, 2.7, 0))
         apply_matrix(rotate_z(np.radians(20)))
-        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_TEXTURIZADA, material_base=MAT_SOLO_PRETO)
+        glDisable(GL_TEXTURE_2D)
         glPopMatrix()
 
         #JANELAS PARA O CUBO MENOR DA DIREITA
@@ -763,10 +853,20 @@ def main():
         #Cubo da esquerda - aplicar rotação
         glPushMatrix()
         glColor3f(0.9, 0.9, 0.9)
-        apply_matrix(scale(4, 4, 3))
+        apply_matrix(scale(4, 4, 4))
         apply_matrix(translate(-1, 1.5, -0.01))
         apply_matrix(rotate_z(np.radians(70)))
-        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_TEXTURIZADA, material_base=MAT_SOLO_PRETO)
+        glPopMatrix()
+        #Cubo da esquerda teto
+        glPushMatrix()
+        glColor3f(0.9, 0.9, 0.9)
+        apply_matrix(scale(4, 4.1, 4.5))
+        apply_matrix(translate(-1, 1.5, -0.01))
+        apply_matrix(rotate_z(np.radians(70)))
+        apply_matrix(scale(0.50001, 1, 1))
+        apply_matrix(translate(1, 0, 0))
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_TEXTURIZADA, material_base=MAT_SOLO_PRETO)
         glPopMatrix()
 
         # VIDROS DO CUBO DA ESQUERDA
@@ -813,10 +913,12 @@ def main():
 
         #Cubo menor da esquerda
         glPushMatrix()
+        glEnable(GL_TEXTURE_2D)
         apply_matrix(scale(3, 3, 3))
         apply_matrix(translate(-2.35, 2.7, 0))
         apply_matrix(rotate_z(np.radians(70)))
-        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_TEXTURIZADA, material_base=MAT_SOLO_PRETO)
+        glDisable(GL_TEXTURE_2D)
         glPopMatrix()
 
         # JANELAS DO CUBO MENOR DA ESQUERDA
@@ -836,7 +938,7 @@ def main():
         glPushMatrix()
         apply_matrix(scale(2.5, 2.5, 3.5))
         apply_matrix(translate(0.78, -0.35, 0.01))
-        draw_hex(material_topo= MAT_CONCRETO_BRANCO, material_laterais=MAT_PAREDE_MARROM, material_base= MAT_SOLO_PRETO)
+        draw_hex(material_topo= MAT_CONCRETO_BRANCO, material_laterais=MAT_CONCRETO_BRANCO, material_base= MAT_SOLO_PRETO)
         glPopMatrix()
 
         #JANELA DO TOPO DO HEXAGONO
@@ -854,10 +956,20 @@ def main():
         
         #Cubo menor do hall - direita
         glPushMatrix()
-        apply_matrix(scale(3, 3, 4))
+        glEnable(GL_TEXTURE_2D)
+        apply_matrix(scale(3.01, 3.01, 4))
         apply_matrix(translate(-0.18, -1.7, 0))
         apply_matrix(rotate_z(np.radians(45)))
-        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_TEXTURIZADA, material_base=MAT_SOLO_PRETO)
+        glDisable(GL_TEXTURE_2D)
+        glPopMatrix()
+        #Cubo menor do hall - direita
+        glPushMatrix()
+        apply_matrix(scale(2.98, 2.98, 4.1))
+        apply_matrix(translate(-0.18, -1.7, 0))
+        apply_matrix(rotate_z(np.radians(45)))
+        apply_matrix(translate(-0.01, -0.01, 0))
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_TEXTURIZADA, material_base=MAT_SOLO_PRETO)
         glPopMatrix()
 
         #JANELAS DO CUBO MENOR DO HALL - DIREITA
@@ -916,10 +1028,19 @@ def main():
         
         #Cubo menor do hall - esquerda
         glPushMatrix()
+        glEnable(GL_TEXTURE_2D)
         apply_matrix(scale(3, 3, 4))
         apply_matrix(translate(1.48, -0.3, 0))
         apply_matrix(rotate_z(np.radians(-135)))
-        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_MARROM, material_base=MAT_SOLO_PRETO)
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_TEXTURIZADA, material_base=MAT_SOLO_PRETO)
+        glDisable(GL_TEXTURE_2D)
+        glPopMatrix()
+        #Cubo menor do hall teto
+        glPushMatrix()
+        apply_matrix(scale(2.99, 2.99, 4.1))
+        apply_matrix(translate(1.48, -0.3, 0))
+        apply_matrix(rotate_z(np.radians(-135)))
+        draw_cube(material_teto= MAT_CONCRETO_BRANCO, material_paredes=MAT_PAREDE_TEXTURIZADA, material_base=MAT_SOLO_PRETO)
         glPopMatrix()
 
         # JANELAS MENOR DO HALL - ESQUERDA
