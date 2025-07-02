@@ -309,6 +309,8 @@ def draw_c(center_x=0, center_y=0, inner_radius=15, thickness=8, num_segments=30
     all_pixels.update(bresenham(inner_points[0][0], outer_points[0][0], inner_points[0][1], outer_points[0][1]))
     all_pixels.update(bresenham(inner_points[-1][0], outer_points[-1][0], inner_points[-1][1], outer_points[-1][1]))
 
+    glNormal3f(0.0, 0.0, 1.0)
+
     glBegin(GL_QUADS)
     for x, y in all_pixels:
         px, py = x + center_x, y + center_y
@@ -440,16 +442,7 @@ def main():
     luz_especular = [1.0, 1.0, 1.0, 1.0]
     #Posição da luz no espaço
     posicao_luz = [5.0, 10.0, 10.0, 0.0]
-    
-    
-    #CONFIGURAR O MATERIAL
-    # Define como o material reflete o brilho especular (será branco)
-    material_especular = [1.0, 1.0, 1.0, 1.0]
-    # Define o quão "polido" é o material (valor alto = brilho pequeno e intenso)
-    material_shininess = [50.0]
-    
-    glMaterialfv(GL_FRONT, GL_SPECULAR, material_especular)
-    glMaterialfv(GL_FRONT, GL_SHININESS, material_shininess)
+
 
     glLightfv(GL_LIGHT0, GL_AMBIENT, luz_ambiente)
     glLightfv(GL_LIGHT0, GL_DIFFUSE, luz_difusa)
@@ -1171,6 +1164,7 @@ def main():
         apply_matrix(scale(0.02, 0.02, 0.02))
         apply_matrix(rotate_x(np.radians(90)))
         apply_matrix(rotate_y(np.radians(45)))
+        apply_matrix(translate(0, 0, 0.1)) 
         apply_material(MAT_CONCRETO_BRANCO)
         draw_c(inner_radius=20, thickness=10, num_segments=40)
         glPopMatrix()
@@ -1182,6 +1176,7 @@ def main():
         apply_matrix(rotate_x(np.radians(90)))
         apply_matrix(rotate_y(np.radians(45)))
         apply_matrix(rotate_z(np.radians(180)))
+        apply_matrix(translate(0, 0, 0.1)) 
         apply_material(MAT_CONCRETO_BRANCO)
         draw_c(inner_radius=20, thickness=10, num_segments=40)
         glPopMatrix()
