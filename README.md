@@ -1,7 +1,7 @@
 # Projeto de Modelagem Gráfica – Prédio do C3
 
 # 📌 Descrição
-Este projeto foi desenvolvido como parte da disciplina de Sistemas Gráficos no curso de Ciência da Computação. Nosso objetivo foi modelar geometricamente o prédio do C3, utilizando técnicas fundamentais da computação gráfica para representar sua estrutura de forma realista e interativa.
+Este projeto foi desenvolvido como parte da disciplina de Sistemas Gráficos FURG. Nosso objetivo foi modelar geometricamente o prédio do C3, utilizando técnicas fundamentais da computação gráfica para representar sua estrutura de forma realista e interativa.
 
 Implementamos manualmente as principais funcionalidades gráficas com foco em transformações geométricas, projeções, iluminação, tonalização, visualização e rasterização, aplicando os conhecimentos adquiridos ao longo da disciplina.
 
