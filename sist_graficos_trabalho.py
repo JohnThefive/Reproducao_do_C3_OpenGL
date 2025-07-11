@@ -12,7 +12,6 @@ def translate(dx, dy, dz):
         [0, 0, 1, dz],
         [0, 0, 0, 1],
     ])
-
     return t
 
 def scale(sx, sy, sz):
@@ -22,7 +21,6 @@ def scale(sx, sy, sz):
         [0, 0, sz, 0],
         [0, 0, 0, 1],
     ])
-
     return e
 
 def rotate_x(alfa):
@@ -34,7 +32,6 @@ def rotate_x(alfa):
      [0, seno, cosseno, 0],
      [0, 0, 0, 1]
     ])
-
     return r
 
 
@@ -46,9 +43,7 @@ def rotate_y(alfa):
      [0, 1, 0, 0],
      [-seno, 0, cosseno, 0],
      [0, 0, 0, 1]
-
     ])
-
     return r
 
 def rotate_z(alfa):
@@ -59,11 +54,8 @@ def rotate_z(alfa):
      [seno,    cosseno, 0, 0],
      [0,       0,       1, 0],
      [0, 0, 0, 1]
-
     ])
-
     return r
-
 
 #Funcao perspectiva:
 def perspectiva(fovy, aspect, near, far):
@@ -131,26 +123,9 @@ def calcular_normal(v0, v1, v2):
     if norma == 0:
         return np.array([0.0, 0.0, 1.0]) 
     return normal / norma
-
-def draw_axes(length=100):
-    glBegin(GL_LINES)
-    # X - vermelho
-    glColor3f(1, 0, 0)
-    glVertex3f(0, 0, 0)
-    glVertex3f(length, 0, 0)
-    # Y - verde
-    glColor3f(0, 1, 0)
-    glVertex3f(0, 0, 0)
-    glVertex3f(0, length, 0)
-    # Z - azul
-    glColor3f(0, 0, 1)
-    glVertex3f(0, 0, 0)
-    glVertex3f(0, 0, length)
-    glEnd()
     
 def apply_matrix(matriz):
     glMultMatrixf(matriz.T)
-
 
 # Alteração do draw_cube para pegar as vertices e fazer a tonalização (material)     
 # Altere a assinatura da função para aceitar os materiais
@@ -290,7 +265,7 @@ def  draw_glass_hexagon():
     for v in vertices:
         glVertex3fv(v)
     glEnd()
-
+    
 def draw_c(center_x=0, center_y=0, inner_radius=15, thickness=8, num_segments=30):
     outer_radius = inner_radius + thickness
     all_pixels = set()
@@ -335,18 +310,8 @@ def draw_ground_circle(radius, num_segments=100):
         
     glEnd()
 
-def apply_camera(pos, look, up):
-    glMatrixMode(GL_MODELVIEW)
-    glLoadIdentity()
-    gluLookAt(*pos, *look, *up)
-    
-def get_direction(yaw, pitch):
-    rad_yaw = np.radians(yaw)
-    rad_pitch = np.radians(pitch)
-    x = np.cos(rad_pitch) * np.cos(rad_yaw)
-    y = np.sin(rad_pitch)
-    z = np.cos(rad_pitch) * np.sin(rad_yaw)
-    return np.array([x, y, z], dtype=np.float32)
+def apply_matrix(matriz):
+    glMultMatrixf(matriz.T)
 
 def load_texture(filename):
     """
@@ -391,10 +356,8 @@ def apply_material(material):
     glMaterialf(GL_FRONT, GL_SHININESS, material["shininess"])
 
 def main():
-    # Inicializa o Pygame
     pygame.init()
     
-    # Define o tamanho da janela
     display = (800, 600)
     pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
 
@@ -471,7 +434,10 @@ def main():
     pitch = 25.0  # Começa olhando um pouco de cima
     distance = 25.0
     
-    # --- Controle do Mouse ---
+    pygame.display.set_caption("Predio C3 - Pressione 'P' (Perspectiva) ou 'O' (Ortogonal)")
+    projection_mode = 'perspective'
+    
+    yaw, pitch, distance = 0.0, 25.0, 25.0
     mouse_down = False 
 
 
@@ -549,7 +515,6 @@ def main():
 
     # Loop principal
     while True:
-        # --- 1. Processamento de Eventos ---
         for event in pygame.event.get():
             if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 pygame.quit()
@@ -572,15 +537,12 @@ def main():
                     mouse_down = False
             # Evento para controlar o Zoom com a roda do mouse
             elif event.type == pygame.MOUSEWHEEL:
-                distance -= event.y * 1.5 # event.y é +1 para cima, -1 para baixo
-                if distance < 1.0: distance = 1.0 # Limite mínimo de zoom
-                if distance > 80.0: distance = 80.0 # Limite máximo
+                distance = np.clip(distance - event.y * 1.5, 1.0, 80.0)
 
         if mouse_down:
             dx, dy = pygame.mouse.get_rel()
             yaw += dx * 0.5
-            pitch -= dy * 0.5
-            pitch = np.clip(pitch, -89, 89) # Limita o ângulo vertical
+            pitch = np.clip(pitch - dy * 0.5, -89, 89)
 
         # --- 2. Limpar a Tela ---
         # Limpando a tela de buffer_normal e a tela de buffer da profundidade
@@ -897,8 +859,6 @@ def main():
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-        
-        #Cubo menor da direita
         glPushMatrix()
         glEnable(GL_TEXTURE_2D)
         apply_matrix(scale(3, 3, 3))
@@ -922,7 +882,7 @@ def main():
         
 
         
-        #Cubo da esquerda - aplicar rotação
+        # Bloco da esquerda
         glPushMatrix()
         glColor3f(0.9, 0.9, 0.9)
         apply_matrix(scale(4, 4, 4))
@@ -1026,7 +986,7 @@ def main():
         draw_glass_hexagon()
         glPopMatrix()
         
-        #Cubo menor do hall - direita
+        # Blocos do hall
         glPushMatrix()
         glEnable(GL_TEXTURE_2D)
         apply_matrix(scale(3.01, 3.01, 4))
@@ -1097,8 +1057,6 @@ def main():
         apply_material(MAT_VIDRO_AZULADO)
         draw_glass_pane()
         glPopMatrix()
-        
-        #Cubo menor do hall - esquerda
         glPushMatrix()
         glEnable(GL_TEXTURE_2D)
         apply_matrix(scale(3, 3, 4))
@@ -1198,9 +1156,7 @@ def main():
         apply_material(MAT_GRAMA_VERDE)
         draw_ground_circle(radius=18) 
         glPopMatrix()
-
         
-        # --- 5. Atualizar a Tela ---
         pygame.display.flip()
         pygame.time.wait(10)
 
